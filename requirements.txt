@@ -1,0 +1,5 @@
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+boto3==1.35.58
+python-multipart==0.0.9
+python-dotenv==1.0.1
