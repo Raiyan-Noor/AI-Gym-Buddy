@@ -1,0 +1,19 @@
+{
+  "no_angle": "Move the target arm into view",
+  "angle_rules": [
+    {
+      "min": 175,
+      "min_inclusive": false,
+      "message": "Nice full extension"
+    },
+    {
+      "max": 45,
+      "max_inclusive": false,
+      "message": "Strong contraction"
+    }
+  ],
+  "stage_messages": {
+    "up": "Squeeze at top",
+    "down": "Control the descent"
+  }
+}

@@ -1,5 +1,9 @@
 import argparse
+import json
 import time
+from pathlib import Path
+from typing import Any
+
 import cv2
 import numpy as np
 
@@ -16,6 +20,35 @@ POSE_CONNECTIONS = mp.solutions.pose.POSE_CONNECTIONS
 POSE_LANDMARK = mp.solutions.pose.PoseLandmark
 DRAWING = mp.solutions.drawing_utils
 DRAWING_STYLES = mp.solutions.drawing_styles
+
+FEEDBACK_RULES_PATH = Path(__file__).with_name("feedback_rules.json")
+
+
+def load_feedback_rules(path: Path) -> dict[str, Any]:
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except FileNotFoundError as exc:
+        raise SystemExit(
+            f"Missing feedback rules file at {path}. Please add it or update the path."
+        ) from exc
+
+
+def angle_rule_matches(angle: float, rule: dict[str, Any]) -> bool:
+    min_val = rule.get("min")
+    if min_val is not None:
+        min_inclusive = bool(rule.get("min_inclusive", True))
+        if angle < min_val or (not min_inclusive and angle == min_val):
+            return False
+    max_val = rule.get("max")
+    if max_val is not None:
+        max_inclusive = bool(rule.get("max_inclusive", True))
+        if angle > max_val or (not max_inclusive and angle == max_val):
+            return False
+    return True
+
+
+FEEDBACK_RULES = load_feedback_rules(FEEDBACK_RULES_PATH)
 
 ARM_LANDMARKS = {
     "left": (
@@ -106,12 +139,18 @@ class RepCounter:
 
     def feedback(self, angle: float | None) -> str:
         if angle is None:
-            return "Move the target arm into view"
-        if angle > 175:
-            return "Nice full extension"
-        if angle < 45:
-            return "Strong contraction"
-        return "Squeeze at top" if self.stage == "up" else "Control the descent"
+            return FEEDBACK_RULES.get("no_angle", "Move the target arm into view")
+
+        for rule in FEEDBACK_RULES.get("angle_rules", []):
+            message = rule.get("message")
+            if not message:
+                continue
+            if angle_rule_matches(angle, rule):
+                return message
+
+        stage_messages = FEEDBACK_RULES.get("stage_messages", {})
+        fallback = "Squeeze at top" if self.stage == "up" else "Control the descent"
+        return stage_messages.get(self.stage, fallback)
 
 
 class MediaPipePoseTracker:
